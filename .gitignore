@@ -1,0 +1,12 @@
+# Ignore runtime and temporary files
+__pycache__/
+.vscode/
+
+# Ignore data persistence file that should not be committed
+data/data.json
+
+# Ignore build artifacts and executables
+*.exe
+build/
+dist/
+output/
