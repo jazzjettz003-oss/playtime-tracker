@@ -3,15 +3,11 @@ from pathlib import Path
 from tkinter import filedialog, messagebox
 
 import customtkinter as ctk
+import psutil
 
-from .config import FONT_FAMILY, NO_APPS_MESSAGE, WINDOW_GEOMETRY
+from .config import CARD_BG, FONT_FAMILY, HOVER_ACCENT, NO_APPS_MESSAGE, PRIMARY_ACCENT, ROOT_BG, WINDOW_GEOMETRY
 from .data_manager import DataManager
 from .tracker import TrackerEngine
-
-PRIMARY_ACCENT = "#7b2cbf"
-HOVER_ACCENT = "#5a189a"
-CARD_BG = "#0a0a0a"
-ROOT_BG = "#000000"
 
 
 class TrackerUI(ctk.CTk):
@@ -114,6 +110,7 @@ class TrackerUI(ctk.CTk):
         list_frame.grid_columnconfigure(0, weight=1)
 
         for index, (process_name, display_name) in enumerate(process_items):
+            # bind process_name/display_name into defaults so each button keeps the right values
             track_button = ctk.CTkButton(
                 list_frame,
                 text=f"{display_name} ({process_name})",
@@ -127,8 +124,6 @@ class TrackerUI(ctk.CTk):
             track_button.grid(row=index, column=0, sticky="ew", pady=4, padx=8)
 
     def _get_running_processes(self):
-        import psutil
-
         processes = {}
         for proc in psutil.process_iter(["name"]):
             try:
@@ -146,6 +141,16 @@ class TrackerUI(ctk.CTk):
         self._refresh_app_list()
         if self.tracker:
             self.tracker.update_apps(self.data_manager.get_tracked_apps())
+
+    def _reset_timer(self, process_name: str) -> None:
+        app = self.data_manager.apps.get(process_name)
+        if not app:
+            return
+        app.total_time = 0
+        self.data_manager.save()
+        # update the card in-place instead of rebuilding everything
+        if process_name in self.app_widgets:
+            self.app_widgets[process_name]["time_label"].configure(text=self._format_seconds(app.total_time))
 
     def _track_process(self, process_name: str, display_name: str | None = None, popup=None) -> None:
         self.data_manager.add_or_track_app(process_name, display_name)
@@ -205,6 +210,18 @@ class TrackerUI(ctk.CTk):
         status_label = ctk.CTkLabel(row, text="Idle", font=ctk.CTkFont(size=11), text_color="#9d4edd")
         status_label.grid(row=1, column=1, padx=18, pady=(0, 16), sticky="e")
 
+        reset_button = ctk.CTkButton(
+            row,
+            text="Reset",
+            width=70,
+            height=30,
+            command=lambda p=process_name: self._reset_timer(p),
+            fg_color="transparent",
+            hover_color="#444444",
+            text_color="#d4d4d4",
+        )
+        reset_button.grid(row=0, column=2, padx=(0, 4), pady=16, sticky="e")
+
         remove_button = ctk.CTkButton(
             row,
             text="X",
@@ -215,7 +232,7 @@ class TrackerUI(ctk.CTk):
             hover_color="#ff4444",
             text_color="#ff6666",
         )
-        remove_button.grid(row=0, column=2, padx=10, pady=16, sticky="e")
+        remove_button.grid(row=0, column=3, padx=(0, 10), pady=16, sticky="e")
 
         self.app_widgets[process_name] = {"time_label": time_label, "status_label": status_label}
 
@@ -227,13 +244,16 @@ class TrackerUI(ctk.CTk):
                 continue
             widgets["time_label"].configure(text=self._format_seconds(app.total_time))
             if active_map.get(process_name):
-                widgets["status_label"].configure(text="● Active", text_color=PRIMARY_ACCENT)
+                widgets["status_label"].configure(text="● Active", text_color="#00c896")
             else:
                 widgets["status_label"].configure(text="Idle", text_color="#9d4edd")
 
         self.update_id = self.after(1000, self._update_ui)
 
     def _format_seconds(self, seconds: int) -> str:
+        if seconds < 60:
+            return f"{seconds}s"
+
         minutes = seconds // 60
         hours = minutes // 60
         minutes = minutes % 60

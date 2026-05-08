@@ -9,4 +9,9 @@ WINDOW_GEOMETRY = "760x520"
 TRACKER_INTERVAL_SECONDS = 1
 FONT_FAMILY = "Segoe UI Variable Display"
 
+PRIMARY_ACCENT = "#7b2cbf"
+HOVER_ACCENT = "#5a189a"
+CARD_BG = "#0a0a0a"
+ROOT_BG = "#000000"
+
 NO_APPS_MESSAGE = "No tracked apps yet. Scan a running process to start tracking."
