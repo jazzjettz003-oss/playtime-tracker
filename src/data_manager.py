@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 from .config import DATA_FILE
 from .model import GameApp
@@ -33,8 +33,11 @@ class DataManager:
     def _load_apps(self) -> Dict[str, GameApp]:
         apps = {}
         for key, raw_app in self._data.get("apps", {}).items():
-            app = GameApp.from_dict(key.lower(), raw_app)
-            apps[app.name] = app
+            try:
+                app = GameApp.from_dict(key.lower(), raw_app)
+                apps[app.name] = app
+            except Exception as exc:
+                print(f"[data_manager] skipping malformed entry '{key}': {exc}")
         return apps
 
     def _write_default_state(self) -> None:
@@ -49,16 +52,31 @@ class DataManager:
     def get_tracked_apps(self) -> Dict[str, GameApp]:
         return {name: app for name, app in self.apps.items() if app.is_tracking}
 
-    def add_or_track_app(self, process_name: str, display_name: str | None = None) -> GameApp:
+    def add_or_track_app(
+        self,
+        process_name: str,
+        display_name: Optional[str] = None,
+        category: str = "General",
+        color_tag: str = "#7b2cbf",
+    ) -> GameApp:
         key = process_name.lower()
         if key in self.apps:
             app = self.apps[key]
             app.is_tracking = True
             if display_name:
                 app.display = display_name
+            app.category = category
+            app.color_tag = color_tag
         else:
             candidate_display = display_name or Path(key).stem
-            app = GameApp(name=key, display=candidate_display, total_time=0, is_tracking=True)
+            app = GameApp(
+                name=key,
+                display=candidate_display,
+                total_time=0,
+                is_tracking=True,
+                category=category,
+                color_tag=color_tag,
+            )
             self.apps[key] = app
         self.save()
         return app
@@ -70,3 +88,18 @@ class DataManager:
             return
         app.is_tracking = False
         self.save()
+
+    def save_settings(self, settings: dict) -> None:
+        settings_file = self.data_file.parent / "settings.json"
+        with open(settings_file, "w", encoding="utf-8") as f:
+            json.dump(settings, f, indent=2)
+
+    def load_settings(self) -> dict:
+        settings_file = self.data_file.parent / "settings.json"
+        if not settings_file.exists():
+            return {}
+        try:
+            with open(settings_file, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return {}

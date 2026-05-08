@@ -32,6 +32,7 @@ class TrackerEngine(threading.Thread):
             self.active = active_state
 
     def _get_running_names(self) -> set[str]:
+        # Returns process names in lowercase to match DataManager keys.
         found = set()
         for proc in psutil.process_iter(["name"]):
             try:
@@ -49,4 +50,4 @@ class TrackerEngine(threading.Thread):
     def update_apps(self, apps: Dict[str, GameApp]) -> None:
         with self._lock:
             self.apps = apps
-            self.active = {name: False for name in apps}
+            self.active = {name: self.active.get(name, False) for name in apps}

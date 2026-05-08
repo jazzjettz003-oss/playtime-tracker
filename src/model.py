@@ -1,4 +1,4 @@
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 
 
 @dataclass
@@ -7,13 +7,24 @@ class GameApp:
     display: str
     total_time: int = 0
     is_tracking: bool = True
+    category: str = "General"
+    color_tag: str = "#7b2cbf"
 
     @classmethod
     def from_dict(cls, name: str, data: dict) -> "GameApp":
         display_value = data.get("display") or data.get("name") or name
         time_value = data.get("time", data.get("cumulative_seconds", 0))
         is_tracking = data.get("is_tracking", True)
-        return cls(name=name, display=display_value, total_time=time_value, is_tracking=is_tracking)
+        category = data.get("category", "General")
+        color_tag = data.get("color_tag", "#7b2cbf")
+        return cls(
+            name=name,
+            display=display_value,
+            total_time=time_value,
+            is_tracking=is_tracking,
+            category=category,
+            color_tag=color_tag,
+        )
 
     def to_dict(self) -> dict:
         return {
@@ -21,4 +32,6 @@ class GameApp:
             "display": self.display,
             "time": self.total_time,
             "is_tracking": self.is_tracking,
+            "category": self.category,
+            "color_tag": self.color_tag,
         }

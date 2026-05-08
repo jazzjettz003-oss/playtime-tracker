@@ -14,4 +14,16 @@ HOVER_ACCENT = "#5a189a"
 CARD_BG = "#0a0a0a"
 ROOT_BG = "#000000"
 
+ACTIVE_COLOR = "#00c896"
+IDLE_COLOR = "#9d4edd"
+ACCENT_NAMES = {
+    "Purple": "#7b2cbf",
+    "Blue": "#0ea5e9",
+    "Amber": "#f59e0b",
+    "Red": "#ef4444",
+    "Green": "#10b981",
+}
+CATEGORY_OPTIONS = ["General", "Game", "Work", "Creative", "Other"]
+WINDOW_MIN_SIZE = (600, 400)
+
 NO_APPS_MESSAGE = "No tracked apps yet. Scan a running process to start tracking."
