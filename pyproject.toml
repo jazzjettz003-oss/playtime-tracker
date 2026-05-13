@@ -1,0 +1,30 @@
+[project]
+name = "playtime-tracker"
+version = "0.1.0"
+description = "Windows desktop app to track game and app playtime locally."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+keywords = ["playtime-tracker", "game-tracker", "time-tracking", "windows", "desktop-app", "tkinter", "customtkinter", "psutil", "productivity"]
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3 :: Only",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+]
+dependencies = [
+    "customtkinter",
+    "psutil",
+    "pillow",
+    "icoextract",
+]
+
+[project.scripts]
+playtime-tracker = "playtime_tracker.__main__:main"
+
+[tool.setuptools]
+packages = ["playtime_tracker"]
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

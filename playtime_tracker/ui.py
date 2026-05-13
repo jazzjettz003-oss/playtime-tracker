@@ -1,7 +1,8 @@
-﻿import os
+﻿import io
+import os
 from pathlib import Path
 from tkinter import filedialog, messagebox
-from typing import Optional
+from typing import Dict, Optional
 
 import customtkinter as ctk
 import psutil
@@ -9,33 +10,48 @@ import psutil
 try:
     from icoextract import IconExtractor
     from PIL import Image
-    import io
     ICON_SUPPORT = True
 except ImportError:
     ICON_SUPPORT = False
 
 from .config import (
     ACTIVE_COLOR,
+    ACTIVE_STATUS_TEXT,
+    ACCENT_HOVER_MAP,
     ACCENT_NAMES,
+    APP_TITLE,
+    BUTTON_ADD_TEXT,
+    BUTTON_SCAN_TEXT,
+    BUTTON_SETTINGS_TEXT,
     CARD_BG,
     CATEGORY_OPTIONS,
     FONT_FAMILY,
-    HOVER_ACCENT,
     IDLE_COLOR,
+    IDLE_STATUS_TEXT,
     NO_APPS_MESSAGE,
     PRIMARY_ACCENT,
+    REMOVE_BUTTON_TEXT,
+    RESET_BUTTON_TEXT,
     ROOT_BG,
+    SCAN_POPUP_TITLE,
+    SCAN_WINDOW_GEOMETRY,
+    SETTINGS_POPUP_TITLE,
+    SETTINGS_WINDOW_GEOMETRY,
+    TRACKER_INTERVAL_SECONDS,
     WINDOW_GEOMETRY,
     WINDOW_MIN_SIZE,
 )
 from .data_manager import DataManager
+from .model import GameApp
 from .tracker import TrackerEngine
 
 
 class TrackerUI(ctk.CTk):
+    """Tkinter UI for the playtime tracker application."""
+
     def __init__(self):
         super().__init__()
-        self.title("Game & App Playtime Tracker")
+        self.title(APP_TITLE)
         self.geometry(WINDOW_GEOMETRY)
         self.resizable(True, True)
         self.minsize(*WINDOW_MIN_SIZE)
@@ -44,23 +60,23 @@ class TrackerUI(ctk.CTk):
         self.configure(fg_color=ROOT_BG)
 
         self.data_manager = DataManager()
-        self.tracker = None
-        self.app_widgets = {}
+        self.tracker: Optional[TrackerEngine] = None
+        self.app_widgets: Dict[str, Dict[str, ctk.CTkLabel]] = {}
         self.update_id = None
         self.current_accent = PRIMARY_ACCENT
-        self.current_hover = HOVER_ACCENT
+        self.current_hover = ACCENT_HOVER_MAP.get(PRIMARY_ACCENT, PRIMARY_ACCENT)
 
         saved = self.data_manager.load_settings()
         if saved.get("accent"):
             self.current_accent = saved["accent"]
-            self.current_hover = saved.get("hover", HOVER_ACCENT)
+            self.current_hover = saved.get("hover", ACCENT_HOVER_MAP.get(self.current_accent, self.current_accent))
 
         self._build_ui()
         self._start_tracker()
         self._update_ui()
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
-    def _build_ui(self):
+    def _build_ui(self) -> None:
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
@@ -71,7 +87,7 @@ class TrackerUI(ctk.CTk):
 
         header = ctk.CTkLabel(
             self.main_frame,
-            text="Game & App Playtime Tracker",
+            text=APP_TITLE,
             font=ctk.CTkFont(family=FONT_FAMILY, size=32, weight="bold"),
             text_color="#ffffff",
         )
@@ -91,7 +107,7 @@ class TrackerUI(ctk.CTk):
 
         self.scan_button = ctk.CTkButton(
             action_frame,
-            text="Scan Running Processes",
+            text=BUTTON_SCAN_TEXT,
             command=self._scan_running_apps,
             fg_color=self.current_accent,
             hover_color=self.current_hover,
@@ -102,7 +118,7 @@ class TrackerUI(ctk.CTk):
 
         self.add_button = ctk.CTkButton(
             action_frame,
-            text="Add App Path",
+            text=BUTTON_ADD_TEXT,
             command=self._add_app,
             fg_color=self.current_accent,
             hover_color=self.current_hover,
@@ -113,7 +129,7 @@ class TrackerUI(ctk.CTk):
 
         self.settings_button = ctk.CTkButton(
             action_frame,
-            text="⚙ Settings",
+            text=BUTTON_SETTINGS_TEXT,
             command=self._open_settings,
             fg_color="transparent",
             hover_color=self.current_hover,
@@ -129,7 +145,7 @@ class TrackerUI(ctk.CTk):
 
         self._refresh_app_list()
 
-    def _add_app(self):
+    def _add_app(self) -> None:
         path = filedialog.askopenfilename(
             title="Select App Executable",
             filetypes=[("Windows Executable", "*.exe")],
@@ -141,15 +157,15 @@ class TrackerUI(ctk.CTk):
         display_name = Path(path).stem
         self._track_process(process_name, display_name)
 
-    def _scan_running_apps(self):
+    def _scan_running_apps(self) -> None:
         process_items = self._get_running_processes()
         if not process_items:
-            messagebox.showinfo("Scan Running Processes", "No running processes were found.")
+            messagebox.showinfo(SCAN_POPUP_TITLE, "No running processes were found.")
             return
 
         popup = ctk.CTkToplevel(self)
-        popup.title("Scan Running Processes")
-        popup.geometry("560x520")
+        popup.title(SCAN_POPUP_TITLE)
+        popup.geometry(SCAN_WINDOW_GEOMETRY)
         popup.transient(self)
         popup.grab_set()
         popup.grid_rowconfigure(0, weight=1)
@@ -160,7 +176,6 @@ class TrackerUI(ctk.CTk):
         list_frame.grid_columnconfigure(0, weight=1)
 
         for index, (process_name, display_name) in enumerate(process_items):
-            # bind process_name/display_name into defaults so each button keeps the right values
             track_button = ctk.CTkButton(
                 list_frame,
                 text=f"{display_name} ({process_name})",
@@ -173,23 +188,36 @@ class TrackerUI(ctk.CTk):
             )
             track_button.grid(row=index, column=0, sticky="ew", pady=4, padx=8)
 
-    def _get_running_processes(self):
-        processes = {}
+    def _get_running_processes(self) -> list[tuple[str, str]]:
+        processes: Dict[str, str] = {}
         for proc in psutil.process_iter(["name"]):
             try:
                 name = proc.info.get("name")
                 if name:
                     key = name.lower()
-                    display_name = Path(name).stem
-                    processes[key] = display_name
+                    processes[key] = Path(name).stem
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
         return sorted(processes.items(), key=lambda item: item[1].lower())
 
-    def _open_settings(self):
+    def _build_process_exe_map(self) -> Dict[str, str]:
+        process_exes: Dict[str, str] = {}
+        for proc in psutil.process_iter(["name", "exe"]):
+            try:
+                name = proc.info.get("name")
+                exe_path = proc.info.get("exe")
+                if name and exe_path:
+                    lower_name = name.lower()
+                    if lower_name not in process_exes:
+                        process_exes[lower_name] = exe_path
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+        return process_exes
+
+    def _open_settings(self) -> None:
         popup = ctk.CTkToplevel(self)
-        popup.title("Settings")
-        popup.geometry("400x200")
+        popup.title(SETTINGS_POPUP_TITLE)
+        popup.geometry(SETTINGS_WINDOW_GEOMETRY)
         popup.transient(self)
         popup.grab_set()
 
@@ -198,17 +226,10 @@ class TrackerUI(ctk.CTk):
         accent_menu = ctk.CTkOptionMenu(popup, values=list(ACCENT_NAMES.keys()), variable=accent_var)
         accent_menu.pack(pady=4)
 
-        def apply():
+        def apply() -> None:
             chosen = ACCENT_NAMES[accent_var.get()]
-            hover_map = {
-                "#7b2cbf": "#5a189a",
-                "#0ea5e9": "#0284c7",
-                "#f59e0b": "#d97706",
-                "#ef4444": "#dc2626",
-                "#10b981": "#059669",
-            }
             self.current_accent = chosen
-            self.current_hover = hover_map.get(chosen, chosen)
+            self.current_hover = ACCENT_HOVER_MAP.get(chosen, chosen)
             self.data_manager.save_settings({
                 "accent": self.current_accent,
                 "hover": self.current_hover,
@@ -231,31 +252,23 @@ class TrackerUI(ctk.CTk):
         if self.tracker:
             self.tracker.update_apps(self.data_manager.get_tracked_apps())
 
-    def _get_app_icon(self, process_name: str):
+    def _get_app_icon(self, process_name: str, process_exe_map: Dict[str, str]) -> Optional[ctk.CTkImage]:
         if not ICON_SUPPORT:
             return None
+        exe_path = process_exe_map.get(process_name.lower())
+        if not exe_path:
+            return None
         try:
-            exe_path = None
-            for proc in psutil.process_iter(["name", "exe"]):
-                try:
-                    if proc.info["name"] and proc.info["name"].lower() == process_name.lower():
-                        exe_path = proc.info.get("exe")
-                        if exe_path:
-                            break
-                except (psutil.NoSuchProcess, psutil.AccessDenied):
-                    continue
-            if not exe_path:
-                print(f"[icon] no exe found for {process_name}")
-                return None
             extractor = IconExtractor(exe_path)
             data = extractor.get_icon()
-            img = Image.open(data if hasattr(data, 'read') else io.BytesIO(data)).convert("RGBA").resize((24, 24), Image.LANCZOS)
+            image_data = data if hasattr(data, "read") else io.BytesIO(data)
+            img = Image.open(image_data).convert("RGBA").resize((24, 24), Image.LANCZOS)
             return ctk.CTkImage(light_image=img, dark_image=img, size=(24, 24))
-        except Exception as e:
-            print(f"[icon] failed for {process_name}: {e}")
+        except Exception as exc:
+            print(f"[icon] failed for {process_name}: {exc}")
             return None
 
-    def _update_accent_ui(self):
+    def _update_accent_ui(self) -> None:
         for btn in [self.scan_button, self.add_button]:
             btn.configure(
                 fg_color=self.current_accent,
@@ -274,19 +287,18 @@ class TrackerUI(ctk.CTk):
             return
         app.total_time = 0
         self.data_manager.save()
-        # update the card in-place instead of rebuilding everything
         if process_name in self.app_widgets:
             self.app_widgets[process_name]["time_label"].configure(text=self._format_seconds(app.total_time))
 
     def _track_process(self, process_name: str, display_name: Optional[str] = None, popup=None) -> None:
-        self.data_manager.add_or_track_app(process_name, display_name)
+        self.data_manager.add_or_track_app(process_name, display_name, category=CATEGORY_OPTIONS[0], color_tag=self.current_accent)
         self._refresh_app_list()
         if self.tracker:
             self.tracker.update_apps(self.data_manager.get_tracked_apps())
         if popup:
             popup.destroy()
 
-    def _refresh_app_list(self):
+    def _refresh_app_list(self) -> None:
         for widget in self.app_list_frame.winfo_children():
             widget.destroy()
         self.app_widgets.clear()
@@ -297,12 +309,11 @@ class TrackerUI(ctk.CTk):
             empty.grid(padx=20, pady=20)
             return
 
-        row_index = 0
-        for process_name, app in sorted(apps.items()):
-            self.create_app_card(process_name, app, row_index)
-            row_index += 1
+        process_exe_map = self._build_process_exe_map()
+        for row_index, (process_name, app) in enumerate(sorted(apps.items())):
+            self.create_app_card(process_name, app, row_index, process_exe_map)
 
-    def create_app_card(self, process_name: str, app, row_index: int) -> None:
+    def create_app_card(self, process_name: str, app: GameApp, row_index: int, process_exe_map: Dict[str, str]) -> None:
         time_str = self._format_seconds(app.total_time)
         row = ctk.CTkFrame(
             self.app_list_frame,
@@ -321,7 +332,7 @@ class TrackerUI(ctk.CTk):
             font=ctk.CTkFont(size=16, weight="bold"),
             text_color="#ffffff",
         )
-        icon_image = self._get_app_icon(process_name)
+        icon_image = self._get_app_icon(process_name, process_exe_map)
         if icon_image:
             icon_label = ctk.CTkLabel(row, text="", image=icon_image)
             icon_label.grid(row=0, column=0, padx=(14, 4), pady=16, sticky="w")
@@ -340,12 +351,12 @@ class TrackerUI(ctk.CTk):
         )
         category_label.grid(row=1, column=0, padx=18, pady=(0, 16), sticky="w")
 
-        status_label = ctk.CTkLabel(row, text="Idle", font=ctk.CTkFont(size=11), text_color=IDLE_COLOR)
+        status_label = ctk.CTkLabel(row, text=IDLE_STATUS_TEXT, font=ctk.CTkFont(size=11), text_color=IDLE_COLOR)
         status_label.grid(row=1, column=2, columnspan=2, padx=10, pady=(0, 14), sticky="e")
 
         reset_button = ctk.CTkButton(
             row,
-            text="Reset",
+            text=RESET_BUTTON_TEXT,
             width=70,
             height=30,
             command=lambda p=process_name: self._reset_timer(p),
@@ -357,7 +368,7 @@ class TrackerUI(ctk.CTk):
 
         remove_button = ctk.CTkButton(
             row,
-            text="X",
+            text=REMOVE_BUTTON_TEXT,
             width=30,
             height=30,
             command=lambda p=process_name: self._remove_app(p),
@@ -369,23 +380,29 @@ class TrackerUI(ctk.CTk):
 
         self.app_widgets[process_name] = {"time_label": time_label, "status_label": status_label}
 
-    def _update_ui(self):
-        active_map = self.tracker.active if self.tracker else {}
+    def _update_ui(self) -> None:
+        active_map = self.tracker.get_active_state() if self.tracker else {}
         for process_name, widgets in self.app_widgets.items():
             app = self.data_manager.apps.get(process_name)
             if not app:
                 continue
             widgets["time_label"].configure(text=self._format_seconds(app.total_time))
             if active_map.get(process_name):
-                widgets["status_label"].configure(text="● Active", text_color=ACTIVE_COLOR)
+                widgets["status_label"].configure(text=ACTIVE_STATUS_TEXT, text_color=ACTIVE_COLOR)
             else:
-                widgets["status_label"].configure(text="Idle", text_color=IDLE_COLOR)
+                widgets["status_label"].configure(text=IDLE_STATUS_TEXT, text_color=IDLE_COLOR)
 
         total_tracked = sum(app.total_time for app in self.data_manager.get_tracked_apps().values())
         self.summary_label.configure(text=f"Total tracked: {self._format_seconds(total_tracked)}")
-        self.update_id = self.after(1000, self._update_ui)
+        self.update_id = self.after(TRACKER_INTERVAL_SECONDS * 1000, self._update_ui)
 
     def _format_seconds(self, seconds: int) -> str:
+        """Format seconds into seconds/minutes/hours for display.
+
+        - Under 60 seconds: show seconds only.
+        - Under one hour: show minutes and seconds.
+        - One hour or more: show hours and minutes.
+        """
         # TODO: Consider returning "–" for 0 seconds to make never-run apps visually clearer.
         if seconds < 60:
             return f"{seconds}s"
@@ -397,12 +414,12 @@ class TrackerUI(ctk.CTk):
             return f"{minutes}m {seconds % 60}s"
         return f"{hours}h {minutes}m"
 
-    def _start_tracker(self):
+    def _start_tracker(self) -> None:
         tracking_apps = self.data_manager.get_tracked_apps()
         self.tracker = TrackerEngine(tracking_apps)
         self.tracker.start()
 
-    def on_closing(self):
+    def on_closing(self) -> None:
         if hasattr(self, "update_id") and self.update_id:
             self.after_cancel(self.update_id)
         if self.tracker:

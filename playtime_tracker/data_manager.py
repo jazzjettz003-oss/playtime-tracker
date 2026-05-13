@@ -1,16 +1,16 @@
 import json
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict
 
-from .config import DATA_FILE
+from .config import DATA_FILE, DEFAULT_CATEGORY, DEFAULT_COLOR_TAG, SETTINGS_FILE
 from .model import GameApp
 
-DEFAULT_STATE = {
-    "apps": {},
-}
+DEFAULT_STATE: Dict[str, Dict[str, object]] = {"apps": {}}
 
 
 class DataManager:
+    """Manage persistent app state and local JSON storage."""
+
     def __init__(self, data_file: Path = DATA_FILE):
         self.data_file = Path(data_file)
         self._ensure_data_file_exists()
@@ -22,7 +22,7 @@ class DataManager:
         if not self.data_file.exists():
             self._write_default_state()
 
-    def _load_data_file(self) -> dict:
+    def _load_data_file(self) -> Dict[str, object]:
         try:
             with self.data_file.open("r", encoding="utf-8") as source:
                 return json.load(source)
@@ -31,7 +31,7 @@ class DataManager:
             return DEFAULT_STATE.copy()
 
     def _load_apps(self) -> Dict[str, GameApp]:
-        apps = {}
+        apps: Dict[str, GameApp] = {}
         for key, raw_app in self._data.get("apps", {}).items():
             try:
                 app = GameApp.from_dict(key.lower(), raw_app)
@@ -55,9 +55,9 @@ class DataManager:
     def add_or_track_app(
         self,
         process_name: str,
-        display_name: Optional[str] = None,
-        category: str = "General",
-        color_tag: str = "#7b2cbf",
+        display_name: str | None = None,
+        category: str = DEFAULT_CATEGORY,
+        color_tag: str = DEFAULT_COLOR_TAG,
     ) -> GameApp:
         key = process_name.lower()
         if key in self.apps:
@@ -89,17 +89,16 @@ class DataManager:
         app.is_tracking = False
         self.save()
 
-    def save_settings(self, settings: dict) -> None:
-        settings_file = self.data_file.parent / "settings.json"
-        with open(settings_file, "w", encoding="utf-8") as f:
+    def save_settings(self, settings: Dict[str, str]) -> None:
+        SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        with SETTINGS_FILE.open("w", encoding="utf-8") as f:
             json.dump(settings, f, indent=2)
 
-    def load_settings(self) -> dict:
-        settings_file = self.data_file.parent / "settings.json"
-        if not settings_file.exists():
+    def load_settings(self) -> Dict[str, str]:
+        if not SETTINGS_FILE.exists():
             return {}
         try:
-            with open(settings_file, encoding="utf-8") as f:
+            with SETTINGS_FILE.open("r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception:
             return {}

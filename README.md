@@ -1,48 +1,94 @@
 # Playtime Tracker
 
-A small desktop app for tracking how long Windows apps have been running.
+A privacy-first Windows desktop app to track game and app playtime locally.
 
-It uses `psutil` to scan processes, stores runtime data in JSON, and renders a compact `customtkinter` dashboard.
+> Suggested GitHub About: Privacy-first Windows desktop playtime tracker with local JSON persistence.
+>
+> **Social preview:** upload a 1280×640 image showing the app screenshot, title, and tagline.
 
-## What it does
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Platform](https://img.shields.io/badge/platform-Windows-blue.svg)
+![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)
 
-- Tracks selected apps by process name.
-- Shows accumulated runtime per app.
-- Updates the active/idle status live.
-- Lets you add apps from a running process scan or by executable path.
-- Includes a reset button on each card to zero the timer and persist the change.
+## Overview
 
-## Project structure
+Playtime Tracker is a Windows desktop tool that records how long your apps and games run by process name or executable path.
+It is built for local use, does not depend on a cloud service, and stores data under `~/.playtime_tracker/data.json`.
 
-- `main.py` — app entry point.
-- `src/ui.py` — the Tkinter-based interface.
-- `src/tracker.py` — background process tracker.
-- `src/data_manager.py` — JSON persistence and app state.
-- `src/model.py` — `GameApp` model.
-- `data/` — persisted runtime state.
+This project exists to make playtime tracking simple and privacy-friendly for non-Steam apps, work tools, creative apps, and general software.
 
-## Install
+## Features
+
+- Track multiple apps by process name or executable path.
+- Live active/idle detection for tracked apps.
+- Reset any app timer instantly.
+- Categories: General / Game / Work / Creative / Other.
+- Accent color selection for a personalized dashboard.
+- Local JSON persistence under `~/.playtime_tracker/data.json`.
+
+## Screenshots
+
+![Dashboard](assets/dashboard.png)
+
+![Scan Running Processes](assets/scan.png)
+
+> TODO: If the screenshot files are not present yet, add `assets/dashboard.png` and `assets/scan.png` with app screen captures.
+
+## Quickstart
 
 ```bash
+git clone https://github.com/yourname/playtime-tracker.git
+cd playtime-tracker
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+python -m playtime_tracker
 ```
 
-## Run
+Once packaged, the app can also be installed and run with:
 
 ```bash
-python main.py
+pip install .
+playtime-tracker
 ```
 
-## Notes
+> Note: This project is Windows-only and requires Python 3.10 or newer.
 
-- The tracker keeps data in `data/data.json`.
-- If the file is missing or malformed, it rebuilds a default state.
-- Status updates are driven by a background tracker thread.
+## Usage
 
-## TODO / Known issues
+- Scan running processes and add an app directly from the process list.
+- Add any executable by path to track apps not currently running.
+- Reset timers on individual app cards.
+- Change accent color in Settings and see the selection persist across launches.
+- Tracked apps continue saving data automatically to the local hidden folder.
 
-- Windows-only right now.
-- Timer may drift if the system sleeps or the app is suspended.
-- No export/import feature yet.
-- No automatic app aliasing or metadata beyond process name.
-- The UI is intentionally simple and not theme-configurable yet.
+## Project Structure
+
+- `main.py` — thin app launcher.
+- `playtime_tracker/` — package modules.
+  - `__init__.py`
+  - `__main__.py`
+  - `config.py`
+  - `data_manager.py`
+  - `model.py`
+  - `tracker.py`
+  - `ui.py`
+- `requirements.txt` — dependencies for development and execution.
+- `pyproject.toml` — packaging metadata.
+- `tests/` — automated unit tests.
+- `assets/` — screenshot and preview images.
+- `.github/` — issue, PR and CI templates.
+
+## Contributing
+
+- Open issues for bugs and feature requests.
+- Submit pull requests with a clear summary and test coverage.
+- Follow PEP 8, use type hints, and add docstrings for public classes and methods.
+- Add tests for new behavior before merging.
+
+## Roadmap / TODO
+
+- Windows-only desktop app.
+- Timer drift may occur while the system sleeps.
+- No export/import support yet.
+- Future ideas: activity reports, CSV export, per-app scheduling, multi-platform support.

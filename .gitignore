@@ -1,12 +1,22 @@
 # Ignore runtime and temporary files
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.pytest_cache/
+.mypy_cache/
+.cache/
+
+# Ignore editor and environment folders
 .vscode/
+.venv/
+.env
 
-# Ignore data persistence file that should not be committed
-data/data.json
-
-# Ignore build artifacts and executables
+# Ignore stale repo data and build artifacts
 *.exe
 build/
 dist/
+*.egg-info/
+pip-wheel-metadata/
 output/
